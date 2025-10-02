@@ -2,11 +2,6 @@
 # 📌 Momentum Project Overview
 
 **Momentum** is a single-page web application (SPA), a modern, clean, and fully responsive web application designed to help you build and track your habits. This project was built with React to create a fast, dynamic, and engaging user experience from the ground up.  
-The architecture is based on three main semantic blocks:  
-
-- **Header** — responsive navigation bar (full menu on desktop, burger menu on mobile).  
-- **Main** — dynamic content area with pages (HomePage, Login, Register) and an adaptive card grid.  
-- **Footer** — minimalist footer with copyright information.  
 
 The app uses **responsive design techniques** with Flexbox and CSS Grid, and includes smooth animations for improved user experience (UX).  
 
