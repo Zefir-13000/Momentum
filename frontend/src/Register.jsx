@@ -1,33 +1,52 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-function Register({ navigateTo }) {
+function Register() {
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(''); // optional, not sent to backend currently
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
-    if (!username || !email || !password || !confirmPassword) {
-      setError('Please fill in all fields');
+
+    if (!username || !password || !confirmPassword) {
+      setError('Please fill in all required fields');
       return;
     }
-    
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-    
+
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
-    
-    console.log('Register attempt with:', { username, email, password });
-    // Add your registration logic here
+
+    try {
+      const res = await fetch('http://localhost:3001/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, email }),
+      });
+
+      if (res.ok) {
+        // Registration successful -> navigate to login page
+        navigate('/login');
+      } else {
+        const data = await res.text();
+        // backend may return plain message
+        setError(data || 'Registration failed');
+      }
+    } catch (err) {
+      console.error('Registration error:', err);
+      setError('Registration failed. Please try again later.');
+    }
   };
 
   return (
@@ -38,9 +57,9 @@ function Register({ navigateTo }) {
             <h2>Create Account</h2>
             <p>Start building better habits today</p>
           </div>
-          
+
           {error && <div className="error-message">{error}</div>}
-          
+
           <div className="form-group">
             <label htmlFor="username">Username</label>
             <input
@@ -51,9 +70,9 @@ function Register({ navigateTo }) {
               placeholder="Choose a username"
             />
           </div>
-          
+
           <div className="form-group">
-            <label htmlFor="email">Email Address</label>
+            <label htmlFor="email">Email Address (optional)</label>
             <input
               type="email"
               id="email"
@@ -62,7 +81,7 @@ function Register({ navigateTo }) {
               placeholder="you@example.com"
             />
           </div>
-          
+
           <div className="form-group">
             <label htmlFor="password">Password</label>
             <input
@@ -73,7 +92,7 @@ function Register({ navigateTo }) {
               placeholder="At least 6 characters"
             />
           </div>
-          
+
           <div className="form-group">
             <label htmlFor="confirmPassword">Confirm Password</label>
             <input
@@ -84,11 +103,11 @@ function Register({ navigateTo }) {
               placeholder="Re-enter your password"
             />
           </div>
-          
+
           <button onClick={handleSubmit} className="auth-button">Create Account</button>
-          
+
           <p className="auth-switch">
-            Already have an account? <button onClick={() => navigateTo('login')} className="link-button">Sign In</button>
+            Already have an account? <button onClick={() => navigate('/login')} className="link-button">Sign In</button>
           </p>
         </div>
       </div>
