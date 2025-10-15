@@ -8,9 +8,15 @@ const AdminPanel = () => {
   const [habits, setHabits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newHabit, setNewHabit] = useState({ user_id: '', title: '', description: '', color: '#ffd166', icon: '✅' });
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [deletingId, setDeletingId] = useState(null);
 
   const navigate = useNavigate();
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
+  const availableIcons = ['✅', '💪', '📚', '🏃', '🧘', '💧', '🎯', '⭐', '🔥', '💡'];
+  const availableColors = ['#667eea', '#fa709a', '#43e97b', '#ffd166', '#4facfe', '#a8edea', '#fed6e3', '#c471f5'];
 
   useEffect(() => {
     const fetchMe = async () => {
@@ -31,13 +37,11 @@ const AdminPanel = () => {
           const data = await res.json();
           setUser(data);
 
-          // If not admin, redirect to habits page
           if (data.role !== 'admin') {
             navigate('/habits');
             return;
           }
 
-          // load admin data
           await Promise.all([loadUsers(), loadHabits()]);
         } else {
           localStorage.removeItem('token');
@@ -52,7 +56,6 @@ const AdminPanel = () => {
     };
 
     fetchMe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   const loadUsers = async () => {
@@ -93,8 +96,56 @@ const AdminPanel = () => {
     navigate('/');
   };
 
-  const deleteHabit = async (id) => {
-    if (!confirm('Delete this habit?')) return;
+  const startEdit = (habit) => {
+    setEditingId(habit.id);
+    setEditForm({
+      title: habit.title,
+      description: habit.description || '',
+      icon: habit.icon || '✅',
+      color: habit.color || '#ffd166'
+    });
+    setDeletingId(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({});
+  };
+
+  const saveEdit = async (id) => {
+    try {
+      const res = await fetch(`http://localhost:3001/api/admin/habits/${id}`, {
+        method: 'PUT',
+        headers: { 
+          Authorization: `Bearer ${token}`, 
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify(editForm),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setHabits((s) => s.map((h) => (h.id === id ? updated : h)));
+        setEditingId(null);
+        setEditForm({});
+      } else {
+        setError('Failed to update habit');
+      }
+    } catch (err) {
+      console.error('Error updating habit (admin)', err);
+      setError('Failed to update habit');
+    }
+  };
+
+  const startDelete = (id) => {
+    setDeletingId(id);
+    setEditingId(null);
+  };
+
+  const cancelDelete = () => {
+    setDeletingId(null);
+  };
+
+  const confirmDelete = async (id) => {
     try {
       const res = await fetch(`http://localhost:3001/api/admin/habits/${id}`, {
         method: 'DELETE',
@@ -102,6 +153,7 @@ const AdminPanel = () => {
       });
       if (res.ok) {
         setHabits((s) => s.filter((h) => h.id !== id));
+        setDeletingId(null);
       } else {
         setError('Failed to delete habit');
       }
@@ -138,27 +190,6 @@ const AdminPanel = () => {
     } catch (err) {
       console.error('Error creating habit (admin)', err);
       setError('Failed to create habit');
-    }
-  };
-
-  const updateHabit = async (id) => {
-    const title = prompt('New title (leave empty to keep)', '');
-    if (title === null) return;
-    try {
-      const res = await fetch(`http://localhost:3001/api/admin/habits/${id}`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title || undefined }),
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        setHabits((s) => s.map((h) => (h.id === id ? updated : h)));
-      } else {
-        setError('Failed to update habit');
-      }
-    } catch (err) {
-      console.error('Error updating habit (admin)', err);
-      setError('Failed to update habit');
     }
   };
 
@@ -236,17 +267,6 @@ const AdminPanel = () => {
                       value={newHabit.title}
                       onChange={(e) => setNewHabit({ ...newHabit, title: e.target.value })}
                     />
-                    <input
-                      placeholder="Icon"
-                      value={newHabit.icon}
-                      onChange={(e) => setNewHabit({ ...newHabit, icon: e.target.value })}
-                      style={{ width: '120px' }}
-                    />
-                    <input
-                      type="color"
-                      value={newHabit.color}
-                      onChange={(e) => setNewHabit({ ...newHabit, color: e.target.value })}
-                    />
                   </div>
                   <div className="form-row">
                     <input
@@ -255,6 +275,37 @@ const AdminPanel = () => {
                       onChange={(e) => setNewHabit({ ...newHabit, description: e.target.value })}
                       style={{ width: '100%' }}
                     />
+                  </div>
+                  <div className="form-row">
+                    <div className="form-icon-picker">
+                      <label>Icon</label>
+                      <div className="form-icon-grid">
+                        {availableIcons.map(icon => (
+                          <button
+                            key={icon}
+                            type="button"
+                            className={`form-icon-option ${newHabit.icon === icon ? 'selected' : ''}`}
+                            onClick={() => setNewHabit({ ...newHabit, icon })}
+                          >
+                            {icon}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="form-color-picker">
+                      <label>Color</label>
+                      <div className="form-color-grid">
+                        {availableColors.map(color => (
+                          <button
+                            key={color}
+                            type="button"
+                            className={`form-color-option ${newHabit.color === color ? 'selected' : ''}`}
+                            style={{ backgroundColor: color }}
+                            onClick={() => setNewHabit({ ...newHabit, color })}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   </div>
                   <div className="form-row">
                     <button className="button primary" type="submit">Create Habit for User</button>
@@ -266,15 +317,95 @@ const AdminPanel = () => {
                     <p>No habits found.</p>
                   ) : (
                     habits.map(h => (
-                      <div key={h.id} className="habit-card-admin">
-                        <div>
-                          <strong>{h.title}</strong> — <small>{h.owner_email}</small>
-                          <div className="muted">{h.description}</div>
-                        </div>
-                        <div className="habit-actions">
-                          <button onClick={() => updateHabit(h.id)} className="button small">Edit</button>
-                          <button onClick={() => deleteHabit(h.id)} className="button danger small">Delete</button>
-                        </div>
+                      <div key={h.id} className={`habit-card-admin ${editingId === h.id ? 'editing' : ''}`}>
+                        {editingId === h.id ? (
+                          <div className="habit-edit-section">
+                            <input
+                              className="edit-input-admin title"
+                              value={editForm.title}
+                              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                              placeholder="Title"
+                            />
+                            <textarea
+                              className="edit-input-admin description"
+                              value={editForm.description}
+                              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                              placeholder="Description"
+                            />
+                            <div className="edit-row">
+                              <div className="edit-group">
+                                <label>Icon</label>
+                                <div className="icon-picker-admin">
+                                  {availableIcons.map(icon => (
+                                    <button
+                                      key={icon}
+                                      type="button"
+                                      className={`icon-option-admin ${editForm.icon === icon ? 'selected' : ''}`}
+                                      onClick={() => setEditForm({ ...editForm, icon })}
+                                    >
+                                      {icon}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="edit-group">
+                                <label>Color</label>
+                                <div className="color-picker-admin">
+                                  {availableColors.map(color => (
+                                    <button
+                                      key={color}
+                                      type="button"
+                                      className={`color-option-admin ${editForm.color === color ? 'selected' : ''}`}
+                                      style={{ backgroundColor: color }}
+                                      onClick={() => setEditForm({ ...editForm, color })}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="edit-actions">
+                              <button onClick={() => saveEdit(h.id)} className="button primary save">
+                                💾 Save Changes
+                              </button>
+                              <button onClick={cancelEdit} className="button cancel">
+                                ✕ Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : deletingId === h.id ? (
+                          <div className="delete-confirm-admin">
+                            <p className="delete-confirm-text">
+                              ⚠️ Are you sure you want to delete "{h.title}"? This action cannot be undone.
+                            </p>
+                            <div className="delete-confirm-actions">
+                              <button onClick={() => confirmDelete(h.id)} className="button confirm-yes">
+                                Yes, Delete
+                              </button>
+                              <button onClick={cancelDelete} className="button confirm-no">
+                                No, Keep It
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="habit-main-content">
+                              <div className="habit-info-section">
+                                <div>
+                                  <strong>{h.title}</strong> — <small>{h.owner_email}</small>
+                                </div>
+                                {h.description && <span className="muted">{h.description}</span>}
+                              </div>
+                              <div className="habit-actions">
+                                <button onClick={() => startEdit(h)} className="button small">
+                                  ✏️ Edit
+                                </button>
+                                <button onClick={() => startDelete(h.id)} className="button danger small">
+                                  🗑️ Delete
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     ))
                   )}
